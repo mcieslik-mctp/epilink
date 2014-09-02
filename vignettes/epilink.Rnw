@@ -1,0 +1,41 @@
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{epilink}
+%\VignetteDepends{epilink}
+\documentclass{article}
+
+\usepackage{times}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{subfig}
+\usepackage{amsmath}
+
+<<style-knitr, eval=TRUE, echo=FALSE, results="asis">>=
+BiocStyle::latex()
+@
+
+
+\title{\Biocpkg{epilink}: Infer epigenetic links between genes and their cis-regulatory regions from epigenetic data.}
+\author{Marcin Cieslik}
+\date{Modified: November 1, 2014. Compiled: \today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+
+In this document...
+
+<<setup, echo=FALSE>>=
+
+library(knitr)
+opts_chunk$set(dev="pdf", fig.align="center", cache=FALSE, message=FALSE, 
+               out.width=".55\\textwidth", echo=TRUE, results="markup", fig.show="hold")
+options(width=60)
+require(epilink)
+
+@
+
+\end{document}

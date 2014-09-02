@@ -1,8 +1,22 @@
 Package: epilink
-Title: What the package does (short line)
-Version: 0.1
-Authors@R: "First Last <first.last@example.com> [aut, cre]"
-Description: What the package does (paragraph)
-Depends: R (>= 3.1.1)
-License: What license is it under?
+Type: Package
+Title: Infer epigenetic links between genes and their cis-regulatory regions
+    from epigenetic data.
+Version: 0.99.0
+Authors@R: "Marcin Cieslik <mcieslik@med.umich.edu> [aut, cre]"
+Description: TODO
+License: BSD_2_clause + file LICENSE
+URL: TODO
+biocViews: GeneRegulation
+Depends:
+    R (>= 3.1.1),
+    methods,
+    GenomicRanges (>= 1.17.28)
+LinkingTo: Rcpp
+Suggests:
+    BiocStyle,
+    testthat (>= 0.8.1),
+    knitr (>= 1.6)
 LazyData: true
+VignetteBuilder: knitr
+Roxygen: list(wrap = TRUE)
