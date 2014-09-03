@@ -3,6 +3,7 @@
 #' 
 #' @name epilink
 #' @docType package
-#' @import GenomicRanges methods
-library(GenomicRanges)
+#' @import methods GenomicRanges rtracklayer
 library(methods)
+library(GenomicRanges)
+library(rtracklayer)
