@@ -13,13 +13,14 @@ Depends:
     methods,
     GenomicRanges (>= 1.17.28)
 Imports:
-    rtracklayer
-    BiocParallel
+    rtracklayer,
+    BiocParallel,
+    TxDb.Hsapiens.UCSC.hg19.knownGene
 LinkingTo: Rcpp
 Suggests:
     BiocStyle,
     testthat (>= 0.8.1),
-    knitr (>= 1.6)
+    knitr (>= 1.6),
 LazyData: true
 VignetteBuilder: knitr
 Roxygen: list(wrap = TRUE)

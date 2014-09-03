@@ -7,3 +7,5 @@
 library(methods)
 library(GenomicRanges)
 library(rtracklayer)
+library(BiocParallel)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
