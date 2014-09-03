@@ -21,26 +21,43 @@ combineBedScores <- function(individual, merged, scoreColumn=NULL, decreasing=TR
     }
 }
 
-
-medianTSS = function(annotation) {
-    ## gene data
-    g = annotation[annotation$type == "gene"]
-    gd = data.table(data.frame(mcols(g)))
-    gd$chr = as.character(seqnames(g))
-    gd$strand = as.character(strand(g))
-    ## transcript by gene
-    tx = annotation[annotation$type == "transcript"]
-    #tx = tx[order(tx$gene_id)]# sorted tx
-    tss = promoters(tx, 0, 1)[,"gene_id"]
-    tbyg = split(tss, tss$gene_id)
-    ## 
-    tmp = data.table(
-        gene_id = names(tbyg),
-        start=quantile(start(tbyg), 0.5, type=3))
-    tmp = merge(tmp, gd, by="gene_id")
-    GRanges(seqnames=tmp$chr, ranges=IRanges(start=tmp$start, end=tmp$start),
-            strand=tmp$strand, gene_id=tmp$gene_id, type="transcript")
+.prepareGenesAndTranscripts <- function(txdb) {
+    ## we loose genes with no gene_id
+    gs <- genes(txdb)
+    ts <- transcripts(txdb, columns=c("tx_id", "gene_id"))
+    tsByGs <- split(ts, as.character(ts$gene_id))
+    ## the sort is required ...
+    ## fortunately this is TRUE
+    ## all(unlist(split(unlist(ts), as.character(unlist(ts)$gene_id))) == unlist(ts))
+    ts <- unlist(tsByGs[names(gs)])
+    names(ts) <- ts$tx_id
+    return(list(genes=gs, transcripts=ts))
 }
+
+.medianTss <- function(gs, tss) {
+    tssByGene <- split(tss, as.character(tss$gene_id))
+    medianTss <- unname(quantile(start(tssByGene), probs=0.5, type=3))
+    start(gs) <- medianTss
+    end(gs) <- medianTss
+    return(gs)
+}
+
+tssLinks <- function(txdb, probable_distance=50000) {
+    tmp <- .prepareGenesAndTranscripts(txdb)
+    gs <- tmp$genes
+    ts <- tmp$transcripts
+    tss <- promoters(ts, 0, 1)
+    mTss <- .medianTss(gs, tss)
+    dist <- distance(mTss[unlist(tss$gene_id)], tss)
+    links = data.frame(
+      queryHits=match(unlist(tss$gene_id), names(gs)),
+      subjectHits=1:length(tss),
+      raw=dist,
+      score=2*pcauchy(-dist, 0, probable_distance)
+      )
+    return(links)
+}
+
 
 
 
@@ -68,8 +85,7 @@ distanceLinks <- function(x, y, probable_distance, alpha) {
 
 
 promoterDistanceLinks <- function(regions, txdb, probable_distance=375, alpha=0.05) {
-    txs = transcripts(TxDb.Hsapiens.UCSC.hg19.knownGene, columns=c("tx_id", "gene_id"))
-    tss = promoters(txs, 0, 1)
+    txdb=TxDb.Hsapiens.UCSC.hg19.knownGene
     
     dl = distanceLinks(regions, tss, probable_distance=probable_distance, alpha=alpha)
     return(dl)
