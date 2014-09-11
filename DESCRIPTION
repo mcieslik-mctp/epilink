@@ -15,12 +15,17 @@ Depends:
 Imports:
     rtracklayer,
     BiocParallel,
-    TxDb.Hsapiens.UCSC.hg19.knownGene
 LinkingTo: Rcpp
 Suggests:
     BiocStyle,
     testthat (>= 0.8.1),
     knitr (>= 1.6),
+    TxDb.Hsapiens.UCSC.hg19.knownGene
 LazyData: true
 VignetteBuilder: knitr
 Roxygen: list(wrap = TRUE)
+Collate:
+    'epilink-package.R'
+    'distance.R'
+    'co-ocurrence.R'
+    'utils.R'
