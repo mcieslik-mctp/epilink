@@ -1,21 +1,29 @@
-
-
-
-## hopScore = function(q, s, dl, p=0.5) {
-##     gd = data.table(q_idx=1:length(q), chr=as.character(seqnames(q)))
-##     d = merge(gd, dl[,c("q_idx", "s_idx"),with=FALSE], by="q_idx")
-##     ## flanks between q and s
-##     sq = start(q[d$q_idx])
-##     ss = start(s[d$s_idx])
-##     flanks = GRanges(d$chr, IRanges(pmin(sq, ss), pmax(sq, ss)), s_idx=d$s_idx, q_idx=d$q_idx)
-##     ## 
-##     hits = data.table(data.frame(findOverlaps(q, flanks)))
-##     counts = hits[,list(n=.N),by=list(subjectHits)]
-##     setnames(counts, c("flank_idx", "n"))
-##     counts$s_idx = flanks[counts$flank_idx]$s_idx
-##     counts$q_idx = flanks[counts$flank_idx]$q_idx
-##     counts$hs = 2*dgeom(counts$n-1, p)
-##     setkey(counts, "q_idx", "s_idx")
-##     dl[counts,hscore:=hs,]
-##     return(dl)
-## }
+contextLinks <- function(sites, models, links, p=0.5) {
+    ## 1. define 'folds' i.e. regions spanning between
+    ## two linked sites
+    sites1 <- granges(sites[assay(sites)[,colnames(links)[1]]])
+    sites2 <- granges(sites[assay(sites)[,colnames(links)[2]]])
+    ls1 <- sites1[links[[colnames(links)[1]]]]
+    ls2 <- sites2[links[[colnames(links)[2]]]]
+    folds <- punion(ls1, ls2, fill.gap=TRUE)
+    ## 2. for each gene define the canonical (median) TSS
+    mTss <- .medianTss(models)
+    ## 3. Find overlaps between cononical TSS sites and each fold
+    hits <- suppressWarnings(data.table(data.frame(findOverlaps(mTss, folds))))
+    ## 4. For each fold count the number of covered canonical TSS sites
+    ## if the cover is 0 this means that the TSS is outside the promoter
+    ## region; we add 1 although this technically might be incorrect.
+    tmp <- hits[,.N,by=list(subjectHits)]
+    setkey(tmp, "subjectHits")
+    counts <- tmp[J(1:nrow(links))]$N
+    counts[is.na(counts)] <- 1
+    ## 5. compute the normalized score
+    clinks <- data.table(
+      links[[colnames(links)[1]]],
+      links[[colnames(links)[2]]],
+      counts,
+      2*dgeom(counts-1, p)
+      )
+    setnames(clinks, names(links))
+    return(clinks)
+}

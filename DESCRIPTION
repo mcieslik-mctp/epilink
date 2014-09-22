@@ -5,27 +5,33 @@ Title: Infer epigenetic links between genes and their cis-regulatory regions
 Version: 0.99.0
 Authors@R: "Marcin Cieslik <mcieslik@med.umich.edu> [aut, cre]"
 Description: TODO
-License: BSD_2_clause + file LICENSE
+License: BSD_2_clause
 URL: TODO
 biocViews: GeneRegulation
 Depends:
     R (>= 3.1.1),
-    methods,
-    GenomicRanges (>= 1.17.28)
+    methods
 Imports:
+    data.table,
     rtracklayer,
+    GenomicRanges,
+    GenomicFiles,
     BiocParallel,
+    preprocessCore
 LinkingTo: Rcpp
 Suggests:
     BiocStyle,
-    testthat (>= 0.8.1),
-    knitr (>= 1.6),
+    testthat,
+    knitr,
     TxDb.Hsapiens.UCSC.hg19.knownGene
 LazyData: true
 VignetteBuilder: knitr
 Roxygen: list(wrap = TRUE)
 Collate:
     'epilink-package.R'
+    'utils.R'
+    'math.R'
     'distance.R'
     'co-ocurrence.R'
-    'utils.R'
+    'context.R'
+    'correlation.R'

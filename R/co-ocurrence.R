@@ -1,17 +1,4 @@
-dsig <- function(a, q) {
-    mq = quantile(a, q)
-    alpha_l = mq[2] - mq[1]
-    alpha_r = mq[3] - mq[2]
-    a = a - mq[2]
-    lsel = (a < 0.)
-    rsel = (a >= 0.)
-    a[lsel] = a[lsel] / (-0.5 * alpha_l)
-    a[rsel] = a[rsel] / (-0.5 * alpha_r)
-    a = (exp(a) + 1)**(-1)
-}
-
-.computeBackground <- function(se) {
-    mx <- assay(se)
+.computeBackground <- function(mx) {
     rs <- rowSums(mx)
     tmp <- lapply(seq(1, ncol(mx)),function(i) {
         imx = mx[rs == i,,drop=FALSE]
@@ -21,9 +8,9 @@ dsig <- function(a, q) {
     return(background)
 }
 
-.cooccurenceScoreInner <- function(x, y, xbg, ybg) {
-    xrs <- rowSums(assay(x))
-    yrs <- rowSums(assay(y))
+.cooccurenceScoreInner <- function(ax, ay, xbg, ybg) {
+    xrs <- rowSums(ax)
+    yrs <- rowSums(ay)
     ## x and y have to be the same length
     xis <- yis <- probs <- vector(mode="numeric", length=nrow(x))
     for (xi in 1:ncol(xbg)) {
@@ -32,8 +19,8 @@ dsig <- function(a, q) {
             ##
             ybgi <- ybg[,yi,drop=TRUE]
             sel <- ((xrs == xi) & (yrs == yi))
-            xs <- assay(x)[sel,,drop=FALSE]
-            ys <- assay(y)[sel,,drop=FALSE]
+            xs <- ax[sel,,drop=FALSE]
+            ys <- ay[sel,,drop=FALSE]
             ##
             p <- matrix(1, nrow=nrow(xs), ncol=ncol(xs))
             p11 <- matrix(rep(xbgi * ybgi, nrow(xs)), nrow=nrow(xs), byrow=TRUE)
@@ -47,21 +34,21 @@ dsig <- function(a, q) {
     return(list(xis, yis, probs))
 }
 
-.cooccurenceScore <- function(regions, dlinks, step) {
+.cooccurenceScore <- function(mx1, mx2, links, step) {
     ## 1. compute background distributions
-    pbg <- .computeBackground(regions$promoters)
-    ebg <- .computeBackground(regions$enhancers)
+    bg1 <- .computeBackground(mx1)
+    bg2 <- .computeBackground(mx2)
     ## 2. compute raw scores
-    links <- dlinks$pe
     cs <- bplapply(seq(1, nrow(links), step), function(idx) {
         sel <- idx:min(nrow(links),(idx+step-1))
+        lsel <- links[sel]
         .cooccurenceScoreInner(
-          x=regions$promoters[  links$queryHits[sel]],
-          y=regions$enhancers[links$subjectHits[sel]],
-          xbg=pbg, ybg=ebg
+          ax=mx1[lsel[[1]],],
+          ay=mx2[lsel[[2]],],
+          xbg=bg1, ybg=bg2
         )})
     ## 3. enumerate and convert to data.table
-    cs <- data.frame(
+    cs <- data.table(
       xi=unlist(unname(sapply(cs, "[", 1))),
       yi=unlist(unname(sapply(cs, "[", 2))),
       raw=unlist(unname(sapply(cs, "[", 3)))
@@ -69,69 +56,64 @@ dsig <- function(a, q) {
     return(cs)
 }
 
-.limitByCount <- function(cs, min_count) {
+.limitByCount <- function(cs, min.count) {
     tmp <- cs[ # tabulate by xi and yi
              ,.N,list(xi, yi)
-              ][ # filter cells with less than min_count counts
-                N<min_count
+              ][ # filter cells with less than min.count counts
+                N<min.count
                 ][ # for each offending cell figure out which margin has a higher count
                  ,list(xi, yi, top=pmax(xi, yi))
                   ][ # ... 
                    ,list(xory=ifelse(xi==top, "xi", "yi"),
                          i=ifelse(xi==top, xi, yi)),
                     ][ # determine the lowest offending cut-off for both margins
-                     ,list(i_cut=min(i)), xory
+                     ,list(icut=min(i)), xory
                       ]
-    cs[,xi:=pmin(xi, tmp[xory == "xi", i_cut]),]
-    cs[,yi:=pmin(yi, tmp[xory == "yi", i_cut]),]
+    cs[,xi:=pmin(xi, tmp[xory == "xi", icut]),]
+    cs[,yi:=pmin(yi, tmp[xory == "yi", icut]),]
 }
 
-.checkQuantile <- function(cs, upper_quantile) {
-    min_uq <- max(cs[,list(mu=mean(raw==0)),by=list(xi,yi)]$mu)
-    if (min_uq >= upper_quantile) {
-        warning("upper quantile to low ... adjusting")
-        upper_quantile <- min_uq
-    }
-    return(upper_quantile)
-}
-
-.scaleBySigmoid <- function(cs, upper_quantile, min_count) {
+.scaleBySigmoid <- function(cs, upper.quantile, min.count) {
     cs <- data.table(cs)
     cs$idx <- 1:nrow(cs)
     ## 4. determine xi and yi cutoffs
-    .limitByCount(cs, min_count)
+    .limitByCount(cs, min.count)
     ## 5. group by xis yis pairs within each group calculate the
     ## normalized score~sigmoid(-log10(p))
-    cs[,score:=2*(dsig(-raw, c(0, 0, upper_quantile))-0.5), by=list(xi, yi)]
+    cs[,score:=2*(dsig(-raw, c(0, 0, upper.quantile))-0.5), by=list(xi, yi)]
     ## 6. sort scores by initial order
     return(cs[order(idx)]$score)
 }
 
-.scaleByQuantile <- function(cs, upper_quantile, min_count) {
+.scaleByQuantile <- function(cs, upper.quantile, min.count) {
     cs <- data.table(cs)
     cs$idx <- 1:nrow(cs)
     ## 4. determine xi and yi cutoffs
-    .limitByCount(cs, min_count)
+    .limitByCount(cs, min.count)
     ## 5. upper quantile scaling
-    xyuq <- cs[,list(uq=quantile(-raw, upper_quantile)),by=list(xi, yi)]
-    setkey(cs, "xi", "yi")
-    setkey(xyuq, "xi", "yi")
-    cs[xyuq, score:=pmin(-raw/uq, 1)]
+    xyuq <- cs[,score:=qthresh(-raw, upper.quantile), by=list(xi, yi)]
     ## 6. sort scores by initial order
     return(cs[order(idx)]$score)
 }
 
-cooccurenceLinks <- function(regions, dlinks, step=5e5, method="sigmoid", upper_quantile=0.95, min_count=1000) {
+cooccurenceLinks <- function(sites, overlaps, links, step=5e5, method="sigmoid", upper.quantile=0.95,
+                             min.count=1000) {
+    
+    mx <- .numericAssay(overlaps)
+    mx1 <- mx[assay(sites)[,colnames(links)[1]],]
+    mx2 <- mx[assay(sites)[,colnames(links)[2]],]
+    
     ## 1-3. calculate raw co-occurence scores
-    cs <- .cooccurenceScore(regions, dlinks, step)
+    cs <- .cooccurenceScore(mx1, mx2, links, step)
+    ## 4-6. normalize the score
     if (method == "sigmoid") {
-        cs$score <- .scaleBySigmoid(cs, upper_quantile, min_count)
+        cs$score <- .scaleBySigmoid(cs, upper.quantile, min.count)
     } else {
-        cs$score <- .scaleByQuantile(cs, upper_quantile, min_count)
+        cs$score <- .scaleByQuantile(cs, upper.quantile, min.count)
     }
     clinks <- cbind(
-      dlinks$pe[,c(1,2)],
+      links[,c(1,2), with=FALSE],
       cs[,c("raw", "score"),with=FALSE]
     )
-    return(cs)
+    return(clinks)
 }

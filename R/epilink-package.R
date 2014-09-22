@@ -3,8 +3,5 @@
 #' 
 #' @name epilink
 #' @docType package
-#' @import methods GenomicRanges rtracklayer
-library(methods)
-library(GenomicRanges)
-library(rtracklayer)
-library(BiocParallel)
+#' @import methods AnnotationDbi rtracklayer GenomicFiles
+
